@@ -1,0 +1,16 @@
+column,kind,meaning,rows_true_or_populated
+facility_group,derived,16-value controlled vocabulary replacing 520 raw strings,298869
+risk_level,derived,ordinal 1/2/3 (null for Unknown),298702
+inspection_year,derived,year of inspection,298869
+code_era,derived,pre_2018_code / 2018_code (which violation code book),298869
+is_reinspection,derived,inspection type contains 're-inspection',57957
+has_violation_text,flag,inspection carried violation text,215525
+n_violations,derived,count of parsed violation rows,215525
+fail_missing_violations,flag,Fail with no violation record,3579
+risk_is_imputed,flag,risk was blank or 'All',167
+facility_type_missing,flag,facility type blank,5264
+missing_city,flag,city blank or a placeholder,174
+missing_state,flag,state blank,58
+out_of_state,flag,state present and not IL,18
+missing_zip,flag,zip blank,42
+missing_geo,flag,latitude/longitude blank,1022

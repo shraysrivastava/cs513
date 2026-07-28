@@ -1,0 +1,44 @@
+CS513 Phase-II  -  Dataset links
+Team79  -  Chicago Food Inspections
+Sid Wanjara (swanj2), Drew Patel (drewp4), Shray Srivastava (ssriv5)
+
+The datasets are NOT included in the submission ZIP (per the instructions). They are shared
+from Box at the links below.
+
+-------------------------------------------------------------------------------------------
+ORIGINAL ("dirty") DATASET  D
+  file    : Food-Inspections-20251023.csv
+  size    : 327.9 MB
+  shape   : 298,869 rows x 17 columns
+  source  : City of Chicago Data Portal - Food Inspections
+            https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5
+  extract : downloaded 2025-10-23; coverage 2010-01-04 .. 2025-10-22
+  BOX LINK: <<< TODO (Drew): paste the shared Box link here >>>
+
+-------------------------------------------------------------------------------------------
+CLEANED DATASET  D'   (two relations)
+
+  1) clean_inspections.csv
+     size  : 91.7 MB
+     shape : 298,869 rows x 34 columns
+     grain : one row per inspection
+     key   : inspection_id
+     BOX LINK: <<< TODO (Drew): paste the shared Box link here >>>
+
+  2) clean_violations.csv
+     size  : 285.0 MB
+     shape : 974,597 rows x 8 columns
+     grain : one row per individual violation per inspection
+     key   : (inspection_id, violation_seq)
+     FK    : inspection_id -> clean_inspections.inspection_id
+     BOX LINK: <<< TODO (Drew): paste the shared Box link here >>>
+
+  (Optional, small enough to also ship inside the ZIP:)
+     ic_report.csv, change_summary.csv, derived_columns.csv, u1_result.csv,
+     OtherToolHistory.json
+
+-------------------------------------------------------------------------------------------
+REPRODUCING D' FROM D
+  Place Food-Inspections-20251023.csv next to CS513_Phase2_Cleaning.ipynb and run the
+  notebook top to bottom (Python 3.9+, pandas 2.3+, duckdb 1.4+). Runtime is about one
+  minute; it writes everything above into ./output/ plus queries.txt.

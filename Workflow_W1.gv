@@ -1,0 +1,65 @@
+/* CS513 Phase-II - Team79 - Chicago Food Inspections
+   W1 - outer project workflow
+   Render:  dot -Tpdf Workflow_W1.gv -o Workflow_W1.pdf */
+
+digraph W1 {
+  rankdir=TB
+  fontname="Helvetica"
+  labelloc=t
+  fontsize=18
+  label="CS513 Phase-II  -  Team79  -  W1: outer project workflow\l"
+  node [fontname="Helvetica", fontsize=11]
+  edge [fontname="Helvetica", fontsize=9, color="#555555"]
+
+subgraph cluster_W1 {
+    label="W1  -  Phase-II project workflow"
+    fontsize=15
+    style="rounded,filled"
+    color="#3a6ea5"
+    fillcolor="#eef4fb"
+    penwidth=2
+
+    /* data nodes */
+    node [shape=box, style="rounded,filled", fillcolor="#ffffcc", color="#999900"]
+    D_raw          [label="D\lFood-Inspections-20251023.csv\l298,869 rows x 17 cols\l"]
+    profile        [label="profile tables\lmissingness, cardinality,\ldomains, key check\l"]
+    D_insp         [label="D' : clean_inspections.csv\l298,869 rows x 34 cols\lPK inspection_id\l"]
+    D_viol         [label="D' : clean_violations.csv\l974,597 rows x 8 cols\lFK inspection_id\l"]
+    ic_rep         [label="ic_report.csv\l15 constraints, before vs after\l"]
+    chg_sum        [label="change_summary.csv\lcells changed per column\l"]
+    u1_res         [label="u1_result.csv\lthe answer to U1\l"]
+    hist           [label="OtherToolHistory.json\loperation history\l(replaces OpenRefine recipe)\l"]
+    qtxt           [label="queries.txt\lall IC + U1 SQL\l"]
+    report         [label="Phase-II report (PDF)\l+ supplementary ZIP\l"]
+
+    /* process nodes */
+    node [shape=box, style="filled", fillcolor="#cfe3f7", color="#3a6ea5", penwidth=1.5]
+    S1 [label="S1  acquire & review\lChicago Data Portal extract;\lconfirm Phase-I DQ inventory\l"]
+    S2 [label="S2  profile D\lpandas; no type inference\l(notebook Step 1)\l"]
+    S3 [label="S3  CLEAN  ->  see W2\lPython / pandas notebook\l(notebook Steps 2-6)\l", fillcolor="#9dc3ea", penwidth=3]
+    S4 [label="S4  verify quality\lDuckDB SQL: 15 ICs on D and D',\lU1 answered on both\l(notebook Steps 7 and 9)\l"]
+    S5 [label="S5  document\lreport, workflow models,\lZIP + Box links\l"]
+
+    D_raw   -> S1
+    S1      -> S2   [label="D verified"]
+    S2      -> profile
+    S2      -> S3   [label="cleaning targets"]
+    S1      -> S3   [label="D"]
+    S3      -> D_insp
+    S3      -> D_viol
+    S3      -> hist
+    S3      -> chg_sum
+    D_insp  -> S4
+    D_viol  -> S4
+    D_raw   -> S4   [label="before-queries Q_U(D)", style=dashed]
+    S4      -> ic_rep
+    S4      -> u1_res
+    S4      -> qtxt
+    profile -> S5
+    chg_sum -> S5
+    ic_rep  -> S5
+    u1_res  -> S5
+    hist    -> S5
+    S5      -> report
+  }
+}

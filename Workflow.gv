@@ -1,0 +1,176 @@
+/* =====================================================================================
+   CS513 Phase-II - Workflow model (Graphviz, YesWorkflow "combined" view)
+   Team79 - Chicago Food Inspections
+   Sid Wanjara (swanj2), Drew Patel (drewp4), Shray Srivastava (ssriv5)
+
+   Corresponds 1:1 to the annotations in Workflow.yw.
+   Render:   dot -Tpdf Workflow.gv -o Workflow.pdf
+             dot -Tpng Workflow.gv -o Workflow.png
+   ===================================================================================== */
+
+digraph Workflow {
+  rankdir=TB
+  fontname="Helvetica"
+  labelloc=t
+  fontsize=20
+  label="CS513 Phase-II  -  Team79  -  Chicago Food Inspections\lW1 (outer project workflow) and W2 (inner cleaning workflow)\l"
+  node [fontname="Helvetica", fontsize=11]
+  edge [fontname="Helvetica", fontsize=9, color="#555555"]
+
+  /* ---------------------------------------------------------------- W1 : outer workflow */
+  subgraph cluster_W1 {
+    label="W1  -  Phase-II project workflow"
+    fontsize=15
+    style="rounded,filled"
+    color="#3a6ea5"
+    fillcolor="#eef4fb"
+    penwidth=2
+
+    /* data nodes */
+    node [shape=box, style="rounded,filled", fillcolor="#ffffcc", color="#999900"]
+    D_raw          [label="D\lFood-Inspections-20251023.csv\l298,869 rows x 17 cols\l"]
+    profile        [label="profile tables\lmissingness, cardinality,\ldomains, key check\l"]
+    D_insp         [label="D' : clean_inspections.csv\l298,869 rows x 34 cols\lPK inspection_id\l"]
+    D_viol         [label="D' : clean_violations.csv\l974,597 rows x 8 cols\lFK inspection_id\l"]
+    ic_rep         [label="ic_report.csv\l15 constraints, before vs after\l"]
+    chg_sum        [label="change_summary.csv\lcells changed per column\l"]
+    u1_res         [label="u1_result.csv\lthe answer to U1\l"]
+    hist           [label="OtherToolHistory.json\loperation history\l(replaces OpenRefine recipe)\l"]
+    qtxt           [label="queries.txt\lall IC + U1 SQL\l"]
+    report         [label="Phase-II report (PDF)\l+ supplementary ZIP\l"]
+
+    /* process nodes */
+    node [shape=box, style="filled", fillcolor="#cfe3f7", color="#3a6ea5", penwidth=1.5]
+    S1 [label="S1  acquire & review\lChicago Data Portal extract;\lconfirm Phase-I DQ inventory\l"]
+    S2 [label="S2  profile D\lpandas; no type inference\l(notebook Step 1)\l"]
+    S3 [label="S3  CLEAN  ->  see W2\lPython / pandas notebook\l(notebook Steps 2-6)\l", fillcolor="#9dc3ea", penwidth=3]
+    S4 [label="S4  verify quality\lDuckDB SQL: 15 ICs on D and D',\lU1 answered on both\l(notebook Steps 7 and 9)\l"]
+    S5 [label="S5  document\lreport, workflow models,\lZIP + Box links\l"]
+
+    D_raw   -> S1
+    S1      -> S2   [label="D verified"]
+    S2      -> profile
+    S2      -> S3   [label="cleaning targets"]
+    S1      -> S3   [label="D"]
+    S3      -> D_insp
+    S3      -> D_viol
+    S3      -> hist
+    S3      -> chg_sum
+    D_insp  -> S4
+    D_viol  -> S4
+    D_raw   -> S4   [label="before-queries Q_U(D)", style=dashed]
+    S4      -> ic_rep
+    S4      -> u1_res
+    S4      -> qtxt
+    profile -> S5
+    chg_sum -> S5
+    ic_rep  -> S5
+    u1_res  -> S5
+    hist    -> S5
+    S5      -> report
+  }
+
+  /* ---------------------------------------------------------------- W2 : inner workflow */
+  subgraph cluster_W2 {
+    label="W2  -  inner data-cleaning workflow  (CS513_Phase2_Cleaning.ipynb, one node per notebook step)"
+    fontsize=15
+    style="rounded,filled"
+    color="#2e7d32"
+    fillcolor="#eefbee"
+    penwidth=2
+
+    node [shape=box, style="rounded,filled", fillcolor="#ffffcc", color="#999900"]
+    w2_in    [label="D (raw, all columns as text)"]
+    w2_city  [label="city_clean"]
+    w2_state [label="state_clean + out_of_state"]
+    w2_risk  [label="risk_clean, risk_level,\lrisk_is_imputed\l"]
+    w2_res   [label="result  (unchanged - U0)"]
+    w2_date  [label="inspection_date (ISO),\linspection_year, code_era\l"]
+    w2_type  [label="inspection_type,\lis_reinspection\l"]
+    w2_ident [label="dba_name, aka_name, address,\llicense_num, zip, lat, long\l"]
+    w2_fac   [label="facility_group\l16-value vocabulary\l"]
+    w2_viol  [label="violation rows\l974,597 atomic facts\l"]
+    w2_flag  [label="10 quality flags\lincl. fail_missing_violations\l"]
+    w2_out1  [label="clean_inspections.csv"]
+    w2_out2  [label="clean_violations.csv"]
+    w2_ic    [label="ic_report.csv"]
+    w2_chg   [label="change_summary.csv"]
+    w2_u1    [label="u1_result.csv"]
+    w2_hist  [label="OtherToolHistory.json\l+ queries.txt\l"]
+
+    node [shape=box, style="filled", fillcolor="#c8e6c9", color="#2e7d32", penwidth=1.5]
+    P1  [label="Step 1  load & profile\ldtype=str, keep_default_na=False\l"]
+    P21 [label="Step 2.1  City\lnormalize + Levenshtein<=2\lmerge to CHICAGO\l"]
+    P22 [label="Step 2.2  State\lupper/trim, flag non-IL\l"]
+    P23 [label="Step 2.3  Risk\l4-value ordinal domain;\l'All' and blank -> Unknown\l"]
+    P24 [label="Step 2.4  Results\lVERIFY ONLY (U0 control)\l"]
+    P25 [label="Step 2.5  Date & Inspection Type\lISO date; derive code_era\l(2018-07-01 code change)\l"]
+    P26 [label="Step 2.6  identity / geo\ltrim + upper only;\lno entity resolution, no imputation\l"]
+    P3  [label="Step 3  Facility Type -> facility_group\lexact map + ordered keyword cascade\l520 -> 16 values\l"]
+    P4  [label="Step 4  parse Violations  (CRITICAL)\lsplit on '|', regex per chunk,\l1 row per violation  ->  1NF\l", fillcolor="#a5d6a7", penwidth=3]
+    P5  [label="Step 5  missing values\lclassify + flag, never impute\l"]
+    P6  [label="Step 6  assemble & emit D'\lassert invariants\l"]
+    P7  [label="Step 7  IC checks (DuckDB)\lQ_U(D) vs Q_U(D')\l"]
+    P8  [label="Step 8  change summary\lcell-level diff vs raw\l"]
+    P9  [label="Step 9  answer U1\lcount once per inspection\l"]
+    P10 [label="Step 10  export provenance\l"]
+
+    w2_in -> P1
+    P1 -> P21  [label="City"]
+    P1 -> P22  [label="State"]
+    P1 -> P23  [label="Risk"]
+    P1 -> P24  [label="Results"]
+    P1 -> P25  [label="Inspection Date/Type"]
+    P1 -> P26  [label="names, address, geo"]
+    P1 -> P3   [label="Facility Type"]
+    P1 -> P4   [label="Violations"]
+
+    P21 -> w2_city
+    P22 -> w2_state
+    P23 -> w2_risk
+    P24 -> w2_res
+    P25 -> w2_date
+    P25 -> w2_type
+    P26 -> w2_ident
+    P3  -> w2_fac
+    w2_date -> P4  [label="code_era", style=dashed]
+    P4  -> w2_viol
+
+    w2_viol -> P5
+    w2_res  -> P5
+    P5 -> w2_flag
+
+    w2_city  -> P6
+    w2_state -> P6
+    w2_risk  -> P6
+    w2_res   -> P6
+    w2_date  -> P6
+    w2_type  -> P6
+    w2_ident -> P6
+    w2_fac   -> P6
+    w2_flag  -> P6
+    w2_viol  -> P6
+    P6 -> w2_out1
+    P6 -> w2_out2
+
+    w2_out1 -> P7
+    w2_out2 -> P7
+    w2_in   -> P7  [label="before-queries", style=dashed]
+    P7 -> w2_ic
+
+    w2_out1 -> P8
+    w2_in   -> P8  [style=dashed]
+    P8 -> w2_chg
+
+    w2_out1 -> P9
+    w2_out2 -> P9
+    P9 -> w2_u1
+
+    w2_ic  -> P10
+    w2_chg -> P10
+    P10 -> w2_hist
+  }
+
+  /* link the two views */
+  S3 -> P1 [label="  W2 expands S3", style=dotted, color="#2e7d32", penwidth=2, constraint=false]
+}

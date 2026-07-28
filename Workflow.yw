@@ -1,0 +1,195 @@
+# =====================================================================================
+# CS513 Phase-II - Workflow model  (YesWorkflow annotations)
+# Team79 - Chicago Food Inspections
+# Sid Wanjara (swanj2), Drew Patel (drewp4), Shray Srivastava (ssriv5)
+#
+# W1 = the OUTER workflow (the whole Phase-II project: acquire -> profile -> clean -> verify -> report)
+# W2 = the INNER data-cleaning workflow, i.e. the numbered steps of CS513_Phase2_Cleaning.ipynb
+#
+# Render with:
+#     yw graph Workflow.yw  -c view=combined > Workflow.gv
+#     dot -Tpdf Workflow.gv -o Workflow.pdf
+# A pre-generated Workflow.gv is included in this submission (it also renders without yw).
+# =====================================================================================
+
+
+# @BEGIN W1_Phase2_DataCleaningProject
+# @PARAM  code_change_date    @AS 2018-07-01
+# @IN     food_inspections_csv  @URI file:Food-Inspections-20251023.csv  @AS D_raw
+# @OUT    clean_inspections_csv @URI file:output/clean_inspections.csv   @AS D_prime_inspections
+# @OUT    clean_violations_csv  @URI file:output/clean_violations.csv    @AS D_prime_violations
+# @OUT    ic_report_csv         @URI file:output/ic_report.csv
+# @OUT    change_summary_csv    @URI file:output/change_summary.csv
+# @OUT    u1_result_csv         @URI file:output/u1_result.csv
+# @OUT    queries_txt           @URI file:queries.txt
+# @OUT    operation_history     @URI file:output/OtherToolHistory.json
+# @OUT    phase2_report         @URI file:CS513_Phase2_Report.pdf
+
+  # -----------------------------------------------------------------------------
+  # @BEGIN S1_acquire_and_review   @DESC Download the Chicago Data Portal extract; confirm schema and Phase-I DQ inventory
+  # @PARAM source                  @AS data.cityofchicago.org/Food-Inspections
+  # @IN    food_inspections_csv    @AS D_raw
+  # @OUT   D_raw_verified
+  # @END S1_acquire_and_review
+
+  # -----------------------------------------------------------------------------
+  # @BEGIN S2_profile              @DESC Measure missingness, cardinality, domains, key uniqueness, Violations structure (notebook Step 1)
+  # @IN    D_raw_verified
+  # @OUT   profile_tables          @DESC per-column profile + Phase-I re-derivation
+  # @OUT   cleaning_targets        @DESC the value distributions that define every cleaning rule
+  # @END S2_profile
+
+  # -----------------------------------------------------------------------------
+  # @BEGIN W2_clean                @DESC INNER WORKFLOW: the cleaning notebook (see W2 block below)
+  # @IN    D_raw_verified
+  # @IN    cleaning_targets
+  # @PARAM code_change_date
+  # @OUT   D_prime_inspections
+  # @OUT   D_prime_violations
+  # @OUT   operation_history
+  # @OUT   change_summary_csv
+  # @END W2_clean
+
+  # -----------------------------------------------------------------------------
+  # @BEGIN S4_verify_quality       @DESC Run 15 integrity constraints in DuckDB SQL over D and D-prime; answer U1 on both (notebook Steps 7 and 9)
+  # @IN    D_raw_verified          @AS D_raw
+  # @IN    D_prime_inspections
+  # @IN    D_prime_violations
+  # @OUT   ic_report_csv
+  # @OUT   u1_result_csv
+  # @OUT   queries_txt
+  # @END S4_verify_quality
+
+  # -----------------------------------------------------------------------------
+  # @BEGIN S5_document             @DESC Assemble the Phase-II report and the supplementary ZIP
+  # @IN    profile_tables
+  # @IN    change_summary_csv
+  # @IN    ic_report_csv
+  # @IN    u1_result_csv
+  # @IN    operation_history
+  # @OUT   phase2_report
+  # @END S5_document
+
+# @END W1_Phase2_DataCleaningProject
+
+
+# =====================================================================================
+# W2 - the inner cleaning workflow. One block per numbered step of
+#      CS513_Phase2_Cleaning.ipynb, in execution order.
+# =====================================================================================
+
+# @BEGIN W2_clean_notebook  @DESC CS513_Phase2_Cleaning.ipynb
+# @PARAM code_change_date
+# @IN    D_raw_verified                 @AS raw
+# @OUT   D_prime_inspections            @URI file:output/clean_inspections.csv
+# @OUT   D_prime_violations             @URI file:output/clean_violations.csv
+# @OUT   operation_history              @URI file:output/OtherToolHistory.json
+# @OUT   change_summary_csv             @URI file:output/change_summary.csv
+
+  # @BEGIN Step1_load_and_profile        @DESC Load every column as text (no type inference); profile D
+  # @IN  raw
+  # @OUT raw_df
+  # @OUT profile_tables
+  # @END Step1_load_and_profile
+
+  # @BEGIN Step2_1_clean_city            @DESC Upper/strip/de-punctuate, collapse repeats, explicit map, Levenshtein<=2 merge to CHICAGO
+  # @PARAM levenshtein_threshold  @AS 2
+  # @IN  raw_df                   @AS City
+  # @OUT city_clean
+  # @END Step2_1_clean_city
+
+  # @BEGIN Step2_2_clean_state           @DESC Upper/trim; blank -> UNKNOWN; flag non-IL rather than delete
+  # @IN  raw_df                   @AS State
+  # @OUT state_clean
+  # @OUT out_of_state_flag
+  # @END Step2_2_clean_state
+
+  # @BEGIN Step2_3_clean_risk            @DESC Map to {Risk 1, Risk 2, Risk 3, Unknown}; blank and 'All' -> Unknown
+  # @IN  raw_df                   @AS Risk
+  # @OUT risk_clean
+  # @OUT risk_level
+  # @OUT risk_is_imputed_flag
+  # @END Step2_3_clean_risk
+
+  # @BEGIN Step2_4_verify_results        @DESC U0 control: trim only, assert the 7-value domain, do NOT re-bucket
+  # @IN  raw_df                   @AS Results
+  # @OUT result_clean
+  # @END Step2_4_verify_results
+
+  # @BEGIN Step2_5_parse_dates_and_type  @DESC Parse MM/DD/YYYY -> ISO; derive code_era at the 2018-07-01 code change; Title-Case inspection type
+  # @PARAM code_change_date
+  # @IN  raw_df                   @AS Inspection_Date
+  # @IN  raw_df                   @AS Inspection_Type
+  # @OUT inspection_date
+  # @OUT code_era
+  # @OUT inspection_type_clean
+  # @END Step2_5_parse_dates_and_type
+
+  # @BEGIN Step2_6_trim_identity         @DESC Whitespace/case only on DBA/AKA/Address/License/Zip; lat-long to float; NO entity resolution, NO imputation
+  # @IN  raw_df                   @AS identity_and_geo_columns
+  # @OUT identity_clean
+  # @END Step2_6_trim_identity
+
+  # @BEGIN Step3_facility_group          @DESC 520 raw strings -> 16-value controlled vocabulary (exact map + ordered keyword cascade)
+  # @IN  raw_df                   @AS Facility_Type
+  # @OUT facility_group
+  # @END Step3_facility_group
+
+  # @BEGIN Step4_parse_violations        @DESC Split the multi-valued cell on '|', regex-parse each chunk, emit one row per violation (1NF)
+  # @PARAM violation_regex  @AS ^\s*(\d+)\.\s*(.*?)\s*(?:-\s*Comments:\s*(.*))?$
+  # @IN  raw_df                   @AS Violations
+  # @IN  code_era
+  # @OUT violation_rows
+  # @OUT violation_number_valid
+  # @END Step4_parse_violations
+
+  # @BEGIN Step5_flag_missing            @DESC Classify blanks; derive 10 quality flags incl. fail_missing_violations; never impute, never delete
+  # @IN  raw_df
+  # @IN  violation_rows
+  # @IN  result_clean
+  # @OUT quality_flags
+  # @END Step5_flag_missing
+
+  # @BEGIN Step6_assemble_and_emit       @DESC Assert invariants (row count, key uniqueness, no orphans); write both relations
+  # @IN  city_clean
+  # @IN  state_clean
+  # @IN  risk_clean
+  # @IN  result_clean
+  # @IN  inspection_date
+  # @IN  inspection_type_clean
+  # @IN  identity_clean
+  # @IN  facility_group
+  # @IN  quality_flags
+  # @IN  violation_rows
+  # @OUT D_prime_inspections
+  # @OUT D_prime_violations
+  # @END Step6_assemble_and_emit
+
+  # @BEGIN Step7_ic_checks               @DESC 15 integrity constraints as DuckDB SQL, evaluated on D and on D-prime
+  # @IN  raw_df
+  # @IN  D_prime_inspections
+  # @IN  D_prime_violations
+  # @OUT ic_report_csv
+  # @END Step7_ic_checks
+
+  # @BEGIN Step8_change_summary          @DESC Diff each cleaned column against its raw counterpart: cells changed / cells filled
+  # @IN  raw_df
+  # @IN  D_prime_inspections
+  # @OUT change_summary_csv
+  # @END Step8_change_summary
+
+  # @BEGIN Step9_answer_U1               @DESC Run U1 on D (not answerable) and on D-prime; count each category once per inspection
+  # @IN  raw_df
+  # @IN  D_prime_inspections
+  # @IN  D_prime_violations
+  # @OUT u1_result_csv
+  # @END Step9_answer_U1
+
+  # @BEGIN Step10_export_provenance      @DESC Write queries.txt and OtherToolHistory.json (the OpenRefine-history substitute)
+  # @IN  ic_report_csv
+  # @IN  change_summary_csv
+  # @OUT operation_history
+  # @OUT queries_txt
+  # @END Step10_export_provenance
+
+# @END W2_clean_notebook

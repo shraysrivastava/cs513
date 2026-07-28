@@ -1,0 +1,16 @@
+IC,constraint,type,needed_for_U1,unit,before_D,after_Dprime,verdict
+IC1,Key: inspection_id is unique,key constraint,required (entity identity),violating rows,0,0,already clean (no change needed)
+IC2,"Domain: Risk in {Risk 1 (High), Risk 2 (Medium), Risk 3 (Low), Unknown}",domain constraint,REQUIRED (U1 groups by risk),violating rows,167,0,RESOLVED
+IC3,Format: City is non-null and in canonical upper/trimmed form,format / completeness,useful (scope verification),violating rows,829,0,RESOLVED
+IC4,Consistency: no misspelled single-token variant of CHICAGO survives,denial constraint,useful (scope verification),violating rows,96,0,RESOLVED
+IC5,Domain: State is a 2-letter code or explicitly UNKNOWN,domain constraint,useful (scope verification),violating rows,58,0,RESOLVED
+IC6,Domain: Results in the 7 documented outcomes  (the U0 control),domain constraint,required (U1 filters Results='Fail'),violating rows,0,0,already clean (no change needed)
+IC7,Controlled vocabulary: facility type has at most 16 distinct values,domain constraint,REQUIRED (U1 groups by facility type),distinct values,521,16,IMPROVED (521 -> 16)
+IC8,Coverage: every non-blank facility type maps to a real group (not 'Other'),completeness,REQUIRED (U1 groups by facility type),violating rows,n/a - no grouping existed in D,190,"new check, only possible on D-prime"
+IC9,1NF: violation facts are atomic (no multi-valued violation cell),normal-form / denial constraint,REQUIRED (U1 counts violation categories),violating rows,215525,0,RESOLVED
+IC10,Referential integrity: viol.inspection_id references insp.inspection_id,inclusion dependency,REQUIRED (U1 joins the two relations),violating rows,n/a - no violation relation existed in D,0,"new check, only possible on D-prime"
+IC11,"FD: (code_era, violation_number) -> violation_title",functional dependency,REQUIRED (stops the 2018 code change merging categories),violating rows,n/a - violation number/title not extractable in D,0,"new check, only possible on D-prime"
+IC11b,FD counter-example: violation_number alone -> violation_title,functional dependency,diagnostic: shows why code_era is needed,violating rows,n/a - violation number/title not extractable in D,45,diagnostic
+IC12,Domain: violation_number lies inside its era's code book,domain constraint,REQUIRED (guards the category vocabulary),violating rows,n/a - violation number not extractable in D,0,"new check, only possible on D-prime"
+IC13,"Every Fail carries violation evidence, or is explicitly flagged",denial constraint,REQUIRED (prevents false zeros in U1),violating rows,3579,0,RESOLVED
+IC14,Format: inspection_date is ISO-8601 and inside the published extract window,format / range constraint,REQUIRED (the date determines the code era),violating rows,0,0,already clean (no change needed)

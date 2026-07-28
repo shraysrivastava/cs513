@@ -1,0 +1,298 @@
+====================================================================================================
+CS513 Phase-II  -  queries.txt
+Team79  -  Chicago Food Inspections
+Sid Wanjara (swanj2), Drew Patel (drewp4), Shray Srivastava (ssriv5)
+
+Engine: DuckDB 1.4.5, executed in-process from CS513_Phase2_Cleaning.ipynb
+Relations:
+  raw  = Food-Inspections-20251023.csv loaded verbatim, columns snake_cased        (D)
+  insp = output/clean_inspections.csv  - one row per inspection                    (D-prime)
+  viol = output/clean_violations.csv   - one row per violation per inspection      (D-prime)
+
+Every IC query returns the NUMBER OF VIOLATING ROWS; 0 means the constraint holds.
+The results recorded below were produced by the notebook run started 2026-07-27T22:10:10.
+====================================================================================================
+
+####################################################################################################
+# PART 1  -  INTEGRITY CONSTRAINTS   (before = evaluated on D, after = evaluated on D-prime)
+####################################################################################################
+
+----------------------------------------------------------------------------------------------------
+-- IC1  Key: inspection_id is unique
+--    type          : key constraint
+--    needed for U1 : required (entity identity)
+--    RESULT        : before(D) = 0   after(D-prime) = 0   [already clean (no change needed)]
+----------------------------------------------------------------------------------------------------
+-- IC1 BEFORE (on D):
+SELECT COUNT(*) FROM (SELECT inspection_id FROM raw GROUP BY 1 HAVING COUNT(*)>1);
+
+-- IC1 AFTER (on D-prime):
+SELECT COUNT(*) FROM (SELECT inspection_id FROM insp GROUP BY 1 HAVING COUNT(*)>1);
+
+----------------------------------------------------------------------------------------------------
+-- IC2  Domain: Risk in {Risk 1 (High), Risk 2 (Medium), Risk 3 (Low), Unknown}
+--    type          : domain constraint
+--    needed for U1 : REQUIRED (U1 groups by risk)
+--    RESULT        : before(D) = 167   after(D-prime) = 0   [RESOLVED]
+----------------------------------------------------------------------------------------------------
+-- IC2 BEFORE (on D):
+SELECT COUNT(*) FROM raw
+WHERE risk IS NULL
+   OR risk NOT IN ('Risk 1 (High)','Risk 2 (Medium)','Risk 3 (Low)');
+
+-- IC2 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp
+WHERE risk_clean IS NULL
+   OR risk_clean NOT IN ('Risk 1 (High)','Risk 2 (Medium)','Risk 3 (Low)','Unknown');
+
+----------------------------------------------------------------------------------------------------
+-- IC3  Format: City is non-null and in canonical upper/trimmed form
+--    type          : format / completeness
+--    needed for U1 : useful (scope verification)
+--    RESULT        : before(D) = 829   after(D-prime) = 0   [RESOLVED]
+----------------------------------------------------------------------------------------------------
+-- IC3 BEFORE (on D):
+SELECT COUNT(*) FROM raw  WHERE city IS NULL OR city <> UPPER(TRIM(city));
+
+-- IC3 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp WHERE city_clean IS NULL OR city_clean <> UPPER(TRIM(city_clean));
+
+----------------------------------------------------------------------------------------------------
+-- IC4  Consistency: no misspelled single-token variant of CHICAGO survives
+--    type          : denial constraint
+--    needed for U1 : useful (scope verification)
+--    RESULT        : before(D) = 96   after(D-prime) = 0   [RESOLVED]
+----------------------------------------------------------------------------------------------------
+-- IC4 BEFORE (on D):
+SELECT COUNT(*) FROM raw
+WHERE UPPER(REGEXP_REPLACE(COALESCE(city,''),'[^A-Za-z]','','g')) <> 'CHICAGO'
+  AND city NOT LIKE '% %'
+  AND (UPPER(city) LIKE '%CHIC%' OR UPPER(city) LIKE '%CAGO%');
+
+-- IC4 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp
+WHERE UPPER(REGEXP_REPLACE(COALESCE(city_clean,''),'[^A-Za-z]','','g')) <> 'CHICAGO'
+  AND city_clean NOT LIKE '% %'
+  AND (UPPER(city_clean) LIKE '%CHIC%' OR UPPER(city_clean) LIKE '%CAGO%');
+
+----------------------------------------------------------------------------------------------------
+-- IC5  Domain: State is a 2-letter code or explicitly UNKNOWN
+--    type          : domain constraint
+--    needed for U1 : useful (scope verification)
+--    RESULT        : before(D) = 58   after(D-prime) = 0   [RESOLVED]
+----------------------------------------------------------------------------------------------------
+-- IC5 BEFORE (on D):
+SELECT COUNT(*) FROM raw WHERE state IS NULL OR NOT REGEXP_MATCHES(state,'^[A-Z]{2}$');
+
+-- IC5 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp
+WHERE state_clean IS NULL
+   OR NOT (REGEXP_MATCHES(state_clean,'^[A-Z]{2}$') OR state_clean = 'UNKNOWN');
+
+----------------------------------------------------------------------------------------------------
+-- IC6  Domain: Results in the 7 documented outcomes  (the U0 control)
+--    type          : domain constraint
+--    needed for U1 : required (U1 filters Results='Fail')
+--    RESULT        : before(D) = 0   after(D-prime) = 0   [already clean (no change needed)]
+----------------------------------------------------------------------------------------------------
+-- IC6 BEFORE (on D):
+SELECT COUNT(*) FROM raw WHERE results IS NULL OR results NOT IN
+('Pass','Fail','Pass w/ Conditions','Out of Business','No Entry','Not Ready','Business Not Located');
+
+-- IC6 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp WHERE result IS NULL OR result NOT IN
+('Pass','Fail','Pass w/ Conditions','Out of Business','No Entry','Not Ready','Business Not Located');
+
+----------------------------------------------------------------------------------------------------
+-- IC7  Controlled vocabulary: facility type has at most 16 distinct values
+--    type          : domain constraint
+--    needed for U1 : REQUIRED (U1 groups by facility type)
+--    RESULT        : before(D) = 521   after(D-prime) = 16   [IMPROVED (521 -> 16)]
+----------------------------------------------------------------------------------------------------
+-- IC7 BEFORE (on D):
+SELECT COUNT(DISTINCT COALESCE(facility_type,'<blank>')) FROM raw;
+
+-- IC7 AFTER (on D-prime):
+SELECT COUNT(DISTINCT facility_group) FROM insp;
+
+----------------------------------------------------------------------------------------------------
+-- IC8  Coverage: every non-blank facility type maps to a real group (not 'Other')
+--    type          : completeness
+--    needed for U1 : REQUIRED (U1 groups by facility type)
+--    RESULT        : before(D) = n/a - no grouping existed in D   after(D-prime) = 190   [new check, only possible on D-prime]
+----------------------------------------------------------------------------------------------------
+-- IC8 BEFORE: not expressible on D - no grouping existed in D
+
+-- IC8 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp WHERE facility_group = 'Other';
+
+----------------------------------------------------------------------------------------------------
+-- IC9  1NF: violation facts are atomic (no multi-valued violation cell)
+--    type          : normal-form / denial constraint
+--    needed for U1 : REQUIRED (U1 counts violation categories)
+--    RESULT        : before(D) = 215525   after(D-prime) = 0   [RESOLVED]
+----------------------------------------------------------------------------------------------------
+-- IC9 BEFORE (on D):
+SELECT COUNT(*) FROM raw WHERE violations IS NOT NULL;
+
+-- IC9 AFTER (on D-prime):
+SELECT COUNT(*) FROM viol WHERE violation_title LIKE '%|%';
+
+----------------------------------------------------------------------------------------------------
+-- IC10  Referential integrity: viol.inspection_id references insp.inspection_id
+--    type          : inclusion dependency
+--    needed for U1 : REQUIRED (U1 joins the two relations)
+--    RESULT        : before(D) = n/a - no violation relation existed in D   after(D-prime) = 0   [new check, only possible on D-prime]
+----------------------------------------------------------------------------------------------------
+-- IC10 BEFORE: not expressible on D - no violation relation existed in D
+
+-- IC10 AFTER (on D-prime):
+SELECT COUNT(*) FROM viol v
+LEFT JOIN insp i USING (inspection_id)
+WHERE i.inspection_id IS NULL;
+
+----------------------------------------------------------------------------------------------------
+-- IC11  FD: (code_era, violation_number) -> violation_title
+--    type          : functional dependency
+--    needed for U1 : REQUIRED (stops the 2018 code change merging categories)
+--    RESULT        : before(D) = n/a - violation number/title not extractable in D   after(D-prime) = 0   [new check, only possible on D-prime]
+----------------------------------------------------------------------------------------------------
+-- IC11 BEFORE: not expressible on D - violation number/title not extractable in D
+
+-- IC11 AFTER (on D-prime):
+SELECT COUNT(*) FROM (SELECT code_era, violation_number FROM viol
+GROUP BY 1,2 HAVING COUNT(DISTINCT violation_title) > 1);
+
+----------------------------------------------------------------------------------------------------
+-- IC11b  FD counter-example: violation_number alone -> violation_title
+--    type          : functional dependency
+--    needed for U1 : diagnostic: shows why code_era is needed
+--    RESULT        : before(D) = n/a - violation number/title not extractable in D   after(D-prime) = 45   [diagnostic]
+----------------------------------------------------------------------------------------------------
+-- IC11b BEFORE: not expressible on D - violation number/title not extractable in D
+
+-- IC11b AFTER (on D-prime):
+SELECT COUNT(*) FROM (SELECT violation_number FROM viol
+GROUP BY 1 HAVING COUNT(DISTINCT violation_title) > 1);
+
+----------------------------------------------------------------------------------------------------
+-- IC12  Domain: violation_number lies inside its era's code book
+--    type          : domain constraint
+--    needed for U1 : REQUIRED (guards the category vocabulary)
+--    RESULT        : before(D) = n/a - violation number not extractable in D   after(D-prime) = 0   [new check, only possible on D-prime]
+----------------------------------------------------------------------------------------------------
+-- IC12 BEFORE: not expressible on D - violation number not extractable in D
+
+-- IC12 AFTER (on D-prime):
+SELECT COUNT(*) FROM viol
+WHERE NOT ( (code_era = 'pre_2018_code' AND (violation_number BETWEEN 1 AND 45 OR violation_number = 70))
+         OR (code_era = '2018_code'     AND  violation_number BETWEEN 1 AND 64) );
+
+----------------------------------------------------------------------------------------------------
+-- IC13  Every Fail carries violation evidence, or is explicitly flagged
+--    type          : denial constraint
+--    needed for U1 : REQUIRED (prevents false zeros in U1)
+--    RESULT        : before(D) = 3579   after(D-prime) = 0   [RESOLVED]
+----------------------------------------------------------------------------------------------------
+-- IC13 BEFORE (on D):
+SELECT COUNT(*) FROM raw WHERE results = 'Fail' AND violations IS NULL;
+
+-- IC13 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp i
+WHERE i.result = 'Fail'
+  AND NOT EXISTS (SELECT 1 FROM viol v WHERE v.inspection_id = i.inspection_id)
+  AND i.fail_missing_violations = FALSE;
+
+----------------------------------------------------------------------------------------------------
+-- IC14  Format: inspection_date is ISO-8601 and inside the published extract window
+--    type          : format / range constraint
+--    needed for U1 : REQUIRED (the date determines the code era)
+--    RESULT        : before(D) = 0   after(D-prime) = 0   [already clean (no change needed)]
+----------------------------------------------------------------------------------------------------
+-- IC14 BEFORE (on D):
+SELECT COUNT(*) FROM raw
+WHERE inspection_date IS NULL
+   OR NOT REGEXP_MATCHES(inspection_date,'^[0-9]{2}/[0-9]{2}/[0-9]{4}$');
+
+-- IC14 AFTER (on D-prime):
+SELECT COUNT(*) FROM insp
+WHERE inspection_date IS NULL
+   OR NOT REGEXP_MATCHES(inspection_date,'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+   OR inspection_date < '2010-01-01' OR inspection_date > '2025-10-23';
+
+####################################################################################################
+# PART 2  -  USE CASE U1
+####################################################################################################
+
+-- U1 attempted on the RAW data. The only available grouping key is the whole free-text
+-- Violations blob, which yields 54,281 groups for 57,819 failed inspections:
+SELECT facility_type, risk, violations, COUNT(*) AS n
+FROM raw WHERE results = 'Fail' GROUP BY 1,2,3 ORDER BY n DESC;
+
+-- U1 answered on the CLEANED data (each category counted once per inspection):
+SELECT i.facility_group,
+       i.risk_clean,
+       v.code_era,
+       v.violation_number,
+       v.violation_title,
+       COUNT(DISTINCT i.inspection_id) AS n_failed_inspections
+FROM insp i
+JOIN viol v USING (inspection_id)
+WHERE i.result = 'Fail'
+  AND i.fail_missing_violations = FALSE
+  AND v.violation_number_valid
+GROUP BY 1,2,3,4,5
+ORDER BY n_failed_inspections DESC;
+
+-- U1, headline view: most common categories among failed inspections, overall
+SELECT v.code_era, v.violation_number, v.violation_title,
+       COUNT(DISTINCT i.inspection_id) AS n_failed_inspections
+FROM insp i JOIN viol v USING (inspection_id)
+WHERE i.result = 'Fail' AND i.fail_missing_violations = FALSE
+GROUP BY 1,2,3 ORDER BY 4 DESC LIMIT 12;
+
+-- U1, top-2 categories per facility group, Risk 1 (High), 2018 code era
+WITH c AS (
+  SELECT i.facility_group, v.violation_title, COUNT(DISTINCT i.inspection_id) AS n
+  FROM insp i JOIN viol v USING (inspection_id)
+  WHERE i.result = 'Fail' AND i.fail_missing_violations = FALSE
+    AND i.risk_clean = 'Risk 1 (High)' AND v.code_era = '2018_code'
+  GROUP BY 1,2)
+SELECT facility_group, violation_title, n
+FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY facility_group ORDER BY n DESC) rk FROM c)
+WHERE rk <= 2 ORDER BY facility_group, n DESC;
+
+####################################################################################################
+# PART 3  -  PROFILING QUERIES  (Step 1; run as pandas in the notebook, SQL equivalents here)
+####################################################################################################
+
+-- missing values per column, on D
+SELECT 'Violations'    AS col, COUNT(*) FILTER (WHERE violations    IS NULL) AS n_missing FROM raw
+UNION ALL SELECT 'Facility Type', COUNT(*) FILTER (WHERE facility_type IS NULL) FROM raw
+UNION ALL SELECT 'AKA Name',      COUNT(*) FILTER (WHERE aka_name      IS NULL) FROM raw
+UNION ALL SELECT 'City',          COUNT(*) FILTER (WHERE city          IS NULL) FROM raw
+UNION ALL SELECT 'Risk',          COUNT(*) FILTER (WHERE risk          IS NULL) FROM raw
+UNION ALL SELECT 'State',         COUNT(*) FILTER (WHERE state         IS NULL) FROM raw
+UNION ALL SELECT 'Zip',           COUNT(*) FILTER (WHERE zip           IS NULL) FROM raw
+UNION ALL SELECT 'Latitude',      COUNT(*) FILTER (WHERE latitude      IS NULL) FROM raw
+ORDER BY n_missing DESC;
+
+-- distribution of the U1 grouping dimensions, BEFORE cleaning
+SELECT risk,          COUNT(*) n FROM raw GROUP BY 1 ORDER BY n DESC;
+SELECT facility_type, COUNT(*) n FROM raw GROUP BY 1 ORDER BY n DESC LIMIT 25;
+SELECT city,          COUNT(*) n FROM raw GROUP BY 1 ORDER BY n DESC LIMIT 25;
+
+-- ... and AFTER cleaning
+SELECT risk_clean,     COUNT(*) n FROM insp GROUP BY 1 ORDER BY n DESC;
+SELECT facility_group, COUNT(*) n FROM insp GROUP BY 1 ORDER BY n DESC;
+SELECT city_clean,     COUNT(*) n FROM insp GROUP BY 1 ORDER BY n DESC LIMIT 25;
+
+-- violation-level profile (only possible on D-prime)
+SELECT code_era, COUNT(*) AS violation_rows, COUNT(DISTINCT violation_title) AS categories,
+       COUNT(DISTINCT inspection_id) AS inspections
+FROM viol GROUP BY 1;
+
+-- repeated violation codes inside a single inspection
+-- (kept in D-prime, de-duplicated at query time for U1)
+SELECT COUNT(*) FROM (SELECT inspection_id, violation_number FROM viol
+                      GROUP BY 1,2 HAVING COUNT(*) > 1);

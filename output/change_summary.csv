@@ -1,0 +1,15 @@
+source_column,cleaned_column,cells_changed,pct_cells_changed,cells_filled_from_blank,distinct_before,distinct_after,missing_before,missing_after
+Inspection Date,inspection_date,298869,100.0,0,3985,3985,0,0
+Inspection Type,inspection_type,63561,21.267,0,111,101,1,1
+Facility Type,facility_group,37459,12.534,5264,521,16,5264,0
+DBA Name,dba_name,22607,7.564,0,34146,33634,0,0
+AKA Name,aka_name,21991,7.358,0,32506,32000,2412,2412
+Address,address,17887,5.985,0,20208,20038,3,3
+City,city_clean,959,0.321,162,90,73,162,0
+Risk,risk_clean,167,0.056,87,5,4,87,0
+State,state_clean,58,0.019,58,7,7,58,0
+Results,result,0,0.0,0,7,7,0,0
+License #,license_num,0,0.0,0,47563,47563,18,18
+Zip,zip,0,0.0,0,131,131,42,42
+Latitude,latitude,0,0.0,0,18704,18704,1022,1022
+Longitude,longitude,0,0.0,0,18704,18704,1022,1022

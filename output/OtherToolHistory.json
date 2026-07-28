@@ -1,0 +1,867 @@
+{
+  "project": "CS513 Phase-II - Chicago Food Inspections",
+  "team": "Team79",
+  "members": [
+    {
+      "name": "Sid Wanjara",
+      "netid": "swanj2"
+    },
+    {
+      "name": "Drew Patel",
+      "netid": "drewp4"
+    },
+    {
+      "name": "Shray Srivastava",
+      "netid": "ssriv5"
+    }
+  ],
+  "note": "Operation history for our data-cleaning workflow. We did not use OpenRefine, so this file replaces OpenRefineHistory.json. Every record was emitted by CS513_Phase2_Cleaning.ipynb at run time, in execution order.",
+  "tooling": {
+    "cleaning": "Python 3.9.6 / pandas 2.3.3",
+    "integrity_checks": "DuckDB 1.4.5 (in-process SQL over the dataframes)",
+    "notebook": "CS513_Phase2_Cleaning.ipynb"
+  },
+  "input": {
+    "file": "Food-Inspections-20251023.csv",
+    "rows": 298869,
+    "columns": 17
+  },
+  "outputs": {
+    "clean_inspections.csv": {
+      "rows": 298869,
+      "columns": 34,
+      "grain": "one row per inspection",
+      "key": "inspection_id"
+    },
+    "clean_violations.csv": {
+      "rows": 974597,
+      "columns": 8,
+      "grain": "one row per violation per inspection",
+      "key": "(inspection_id, violation_seq)",
+      "foreign_key": "inspection_id -> clean_inspections.inspection_id"
+    }
+  },
+  "run_started": "2026-07-27T22:10:10",
+  "run_finished": "2026-07-27T22:10:36",
+  "n_operations": 16,
+  "operations": [
+    {
+      "op_id": "op001",
+      "step": "1. Profile",
+      "operation": "verify_phase1_profile",
+      "description": "Re-derived the Phase-I missing-value profile from the actual CSV.",
+      "rationale_for_U1": "Confirms the Phase-I inventory of DQ problems still describes the file we are cleaning.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [],
+      "columns_out": [],
+      "before": {
+        "phase1_reported_missing_total": 94457
+      },
+      "after": {
+        "phase2_actual_missing_total": 94457
+      },
+      "rows_affected": null,
+      "timestamp": "2026-07-27T22:10:13"
+    },
+    {
+      "op_id": "op002",
+      "step": "1. Profile",
+      "operation": "profile_violations_column",
+      "description": "Measured the multi-valuedness of the Violations column.",
+      "rationale_for_U1": "U1 counts violation categories; they are unusable while packed into one free-text cell.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [],
+      "columns_out": [],
+      "before": {
+        "violation_facts_in_free_text": 974597,
+        "atomic_violation_rows": 0
+      },
+      "after": null,
+      "rows_affected": null,
+      "timestamp": "2026-07-27T22:10:14"
+    },
+    {
+      "op_id": "op003",
+      "step": "2.1 City",
+      "operation": "normalize_and_cluster_city",
+      "description": "Upper/strip/de-punctuate, collapse repeated tokens, apply explicit corrections, then Levenshtein<=2 merge of Chicago spelling variants; blanks and placeholders -> UNKNOWN.",
+      "rationale_for_U1": "U1 is scoped to Chicago inspections; that scope can only be verified once the 90 spellings of the city collapse to canonical values. Suburb-level fuzzy merging deliberately NOT done.",
+      "tool": "python/pandas",
+      "params": {
+        "distance_metric": "levenshtein",
+        "threshold": 2,
+        "anchor": "CHICAGO",
+        "explicit_map": {
+          "CH": "CHICAGO",
+          "CHICAGOBEDFORD PARK": "BEDFORD PARK"
+        },
+        "placeholders": [
+          "CHARLES A HAYES",
+          "INACTIVE"
+        ]
+      },
+      "columns_in": [
+        "City"
+      ],
+      "columns_out": [
+        "city_clean"
+      ],
+      "before": {
+        "distinct": 90,
+        "exact_CHICAGO": 297676,
+        "missing": 162
+      },
+      "after": {
+        "distinct": 73,
+        "exact_CHICAGO": 298450,
+        "missing": 0
+      },
+      "rows_affected": 959,
+      "timestamp": "2026-07-27T22:10:14"
+    },
+    {
+      "op_id": "op004",
+      "step": "2.2 State",
+      "operation": "normalize_state",
+      "description": "Upper/trim State; blank -> 'UNKNOWN'; non-IL rows flagged rather than deleted.",
+      "rationale_for_U1": "Scope check for U1 (Chicago, IL). Flag-not-delete keeps |D'| = |D| and the choice reversible.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [
+        "State"
+      ],
+      "columns_out": [
+        "state_clean",
+        "out_of_state"
+      ],
+      "before": {
+        "distinct": 7,
+        "missing": 58
+      },
+      "after": {
+        "distinct": 7,
+        "missing": 0,
+        "flagged_out_of_state": 18
+      },
+      "rows_affected": 58,
+      "timestamp": "2026-07-27T22:10:14"
+    },
+    {
+      "op_id": "op005",
+      "step": "2.3 Risk",
+      "operation": "map_risk_to_ordinal_domain",
+      "description": "Mapped Risk onto {Risk 1 (High), Risk 2 (Medium), Risk 3 (Low), Unknown}; blank (87) and the undocumented 'All' (80) -> Unknown, marked with risk_is_imputed.",
+      "rationale_for_U1": "NECESSARY: U1 breaks results down by risk level, so risk must be a closed ordinal domain.",
+      "tool": "python/pandas",
+      "params": {
+        "map": {
+          "RISK 1 (HIGH)": "Risk 1 (High)",
+          "RISK 2 (MEDIUM)": "Risk 2 (Medium)",
+          "RISK 3 (LOW)": "Risk 3 (Low)",
+          "ALL": "Unknown",
+          "": "Unknown"
+        },
+        "assumption": "'All' is not an ordinal risk level -> treated as Unknown"
+      },
+      "columns_in": [
+        "Risk"
+      ],
+      "columns_out": [
+        "risk_clean",
+        "risk_level",
+        "risk_is_imputed"
+      ],
+      "before": {
+        "distinct": 5,
+        "out_of_domain_rows": 167
+      },
+      "after": {
+        "distinct": 4,
+        "out_of_domain_rows": 0
+      },
+      "rows_affected": 167,
+      "timestamp": "2026-07-27T22:10:15"
+    },
+    {
+      "op_id": "op006",
+      "step": "2.4 Results",
+      "operation": "verify_results_domain",
+      "description": "Trimmed whitespace and asserted Results against the 7 documented outcomes. No re-bucketing.",
+      "rationale_for_U1": "U1 filters on Results='Fail'. Profiling shows the column is already a clean controlled vocabulary (our U0 case), so the correct action is to verify, not to transform.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [
+        "Results"
+      ],
+      "columns_out": [
+        "result"
+      ],
+      "before": {
+        "distinct": 7,
+        "out_of_domain": 0
+      },
+      "after": {
+        "distinct": 7,
+        "out_of_domain": 0
+      },
+      "rows_affected": 0,
+      "timestamp": "2026-07-27T22:10:15"
+    },
+    {
+      "op_id": "op007",
+      "step": "2.5 Inspection Type",
+      "operation": "normalize_inspection_type",
+      "description": "Whitespace squeeze plus consistent Title Case; derived is_reinspection.",
+      "rationale_for_U1": "USEFUL (not required by U1): removes pure case-variant duplicates so later slices of the U1 result by inspection type are not fragmented.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [
+        "Inspection Type"
+      ],
+      "columns_out": [
+        "inspection_type",
+        "is_reinspection"
+      ],
+      "before": {
+        "distinct": 111
+      },
+      "after": {
+        "distinct": 101
+      },
+      "rows_affected": 63561,
+      "timestamp": "2026-07-27T22:10:15"
+    },
+    {
+      "op_id": "op008",
+      "step": "2.5 Inspection Date",
+      "operation": "parse_dates_and_derive_code_era",
+      "description": "Parsed MM/DD/YYYY -> ISO date; derived inspection_year and code_era (split at 2018-07-01).",
+      "rationale_for_U1": "NECESSARY: the violation code book changed on 2018-07-01, so the same violation NUMBER means different things before and after. Without the parsed date U1 would merge two code systems.",
+      "tool": "python/pandas",
+      "params": {
+        "input_format": "%m/%d/%Y",
+        "code_change_date": "2018-07-01"
+      },
+      "columns_in": [
+        "Inspection Date"
+      ],
+      "columns_out": [
+        "inspection_date",
+        "inspection_year",
+        "code_era"
+      ],
+      "before": {
+        "unparseable": 0,
+        "format": "MM/DD/YYYY text"
+      },
+      "after": {
+        "unparseable": 0,
+        "format": "ISO-8601 date"
+      },
+      "rows_affected": 298869,
+      "timestamp": "2026-07-27T22:10:15"
+    },
+    {
+      "op_id": "op009",
+      "step": "2.6 Identity/address",
+      "operation": "trim_identity_fields",
+      "description": "Whitespace squeeze + upper-case on DBA/AKA/Address; trim on License #/Zip; lat/long -> float.",
+      "rationale_for_U1": "USEFUL only. U1 does not group by establishment or address, so per the scope guardrail we do the free normalization and explicitly do NOT attempt entity resolution or impute geo values.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [
+        "DBA Name",
+        "AKA Name",
+        "Address",
+        "License #",
+        "Zip",
+        "Latitude",
+        "Longitude"
+      ],
+      "columns_out": [
+        "dba_name",
+        "aka_name",
+        "address",
+        "license_num",
+        "zip",
+        "latitude",
+        "longitude"
+      ],
+      "before": {
+        "dba_untrimmed_cells": 22607
+      },
+      "after": {
+        "dba_untrimmed_cells": 0
+      },
+      "rows_affected": 40494,
+      "timestamp": "2026-07-27T22:10:16"
+    },
+    {
+      "op_id": "op010",
+      "step": "3. Facility type",
+      "operation": "map_facility_type_to_group",
+      "description": "Collapsed 520 raw Facility Type strings into a 16-value controlled vocabulary using an exact map plus an ordered keyword cascade; blank -> 'Unknown', unmatched -> 'Other'.",
+      "rationale_for_U1": "NECESSARY: U1 breaks the violation counts down BY FACILITY TYPE. A 520-value dimension with a one-row long tail makes that breakdown unreadable and statistically meaningless.",
+      "tool": "python/pandas",
+      "params": {
+        "n_exact_map_entries": 19,
+        "n_keyword_rules": 15,
+        "precedence": "food-preparation activity beats retail activity for composite types"
+      },
+      "columns_in": [
+        "Facility Type"
+      ],
+      "columns_out": [
+        "facility_type_raw",
+        "facility_group"
+      ],
+      "before": {
+        "distinct_values": 520,
+        "blank_rows": 5264
+      },
+      "after": {
+        "distinct_values": 16,
+        "unmapped_Other_rows": 190,
+        "Unknown_rows": 5264
+      },
+      "rows_affected": 37459,
+      "timestamp": "2026-07-27T22:10:17"
+    },
+    {
+      "op_id": "op011",
+      "step": "4. Violations",
+      "operation": "parse_multivalued_violations_to_relation",
+      "description": "Split the multi-valued Violations cell on '|' and regex-parsed each chunk into (violation_number, violation_title, violation_comment), emitting one row per violation per inspection into a second relation; attached code_era and validated numbers per era.",
+      "rationale_for_U1": "THE core step for U1: 'violation category' does not exist as a value in D - it is a substring of a free-text blob. Normalizing to a violation-level relation makes U1 a GROUP BY.",
+      "tool": "python/pandas",
+      "params": {
+        "separator": "|",
+        "regex": "^\\s*(\\d+)\\.\\s*(.*?)\\s*(?:-\\s*Comments:\\s*(.*))?$",
+        "valid_codes": {
+          "pre_2018_code": "1-45 and 70",
+          "2018_code": "1-64"
+        },
+        "duplicate_policy": "keep all rows; de-duplicate at query time"
+      },
+      "columns_in": [
+        "Violations",
+        "Inspection ID",
+        "Inspection Date"
+      ],
+      "columns_out": [
+        "inspection_id",
+        "violation_seq",
+        "violation_number",
+        "violation_title",
+        "violation_comment",
+        "code_era",
+        "violation_number_valid"
+      ],
+      "before": {
+        "atomic_violation_rows": 0,
+        "cells_with_packed_violations": 215525,
+        "queryable_category_field": false
+      },
+      "after": {
+        "atomic_violation_rows": 974597,
+        "unparsed_chunks": 0,
+        "distinct_categories": 110,
+        "queryable_category_field": true
+      },
+      "rows_affected": 974597,
+      "timestamp": "2026-07-27T22:10:27"
+    },
+    {
+      "op_id": "op012",
+      "step": "5. Missing values",
+      "operation": "classify_missing_and_flag",
+      "description": "Derived 10 explicit quality flags instead of imputing or deleting: has_violation_text, n_violations, fail_missing_violations, risk_is_imputed, facility_type_missing, missing_city/state/zip/geo, out_of_state.",
+      "rationale_for_U1": "NECESSARY: a Fail with no violation text is missing data, not zero violations. Flagging lets U1 exclude those rows explicitly instead of silently deflating every category rate.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [
+        "Violations",
+        "Results",
+        "Risk",
+        "Facility Type",
+        "City",
+        "State",
+        "Zip",
+        "Latitude",
+        "Longitude"
+      ],
+      "columns_out": [
+        "has_violation_text",
+        "n_violations",
+        "fail_missing_violations",
+        "risk_is_imputed",
+        "facility_type_missing",
+        "missing_city",
+        "missing_state",
+        "out_of_state",
+        "missing_zip",
+        "missing_geo"
+      ],
+      "before": {
+        "explicit_quality_flags": 0
+      },
+      "after": {
+        "explicit_quality_flags": 10,
+        "fail_missing_violations": 3579
+      },
+      "rows_affected": 9712,
+      "timestamp": "2026-07-27T22:10:28"
+    },
+    {
+      "op_id": "op013",
+      "step": "6. Emit",
+      "operation": "write_cleaned_datasets",
+      "description": "Assembled and wrote clean_inspections.csv (1 row per inspection) and clean_violations.csv (1 row per violation per inspection).",
+      "rationale_for_U1": "These two relations ARE D'. The 1:N split is the structural change that makes U1 expressible.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [],
+      "columns_out": [
+        "inspection_id",
+        "dba_name",
+        "aka_name",
+        "license_num",
+        "facility_type_raw",
+        "facility_group",
+        "risk_raw",
+        "risk_clean",
+        "risk_level",
+        "address",
+        "city_raw",
+        "city_clean",
+        "state_raw",
+        "state_clean",
+        "zip",
+        "latitude",
+        "longitude",
+        "inspection_date",
+        "inspection_year",
+        "code_era",
+        "inspection_type_raw",
+        "inspection_type",
+        "is_reinspection",
+        "result",
+        "has_violation_text",
+        "n_violations",
+        "fail_missing_violations",
+        "risk_is_imputed",
+        "facility_type_missing",
+        "missing_city",
+        "missing_state",
+        "out_of_state",
+        "missing_zip",
+        "missing_geo",
+        "inspection_id",
+        "violation_seq",
+        "violation_number",
+        "violation_title",
+        "violation_comment",
+        "code_era",
+        "violation_key",
+        "violation_number_valid"
+      ],
+      "before": {
+        "relations": 1,
+        "rows": 298869,
+        "columns": 17
+      },
+      "after": {
+        "relations": 2,
+        "inspection_rows": 298869,
+        "inspection_columns": 34,
+        "violation_rows": 974597
+      },
+      "rows_affected": 1273466,
+      "timestamp": "2026-07-27T22:10:33"
+    },
+    {
+      "op_id": "op014",
+      "step": "7. IC checks",
+      "operation": "run_integrity_constraints",
+      "description": "Ran 15 integrity constraints as DuckDB SQL over D and over D-prime.",
+      "rationale_for_U1": "Supplies the measured evidence for Report 2b that the properties U1 depends on now hold.",
+      "tool": "python/pandas",
+      "params": {
+        "engine": "duckdb 1.4.5",
+        "n_constraints": 15
+      },
+      "columns_in": [],
+      "columns_out": [
+        "ic_report.csv"
+      ],
+      "before": {
+        "ic_violating_rows": 220254
+      },
+      "after": {
+        "ic_violating_rows": 0
+      },
+      "rows_affected": null,
+      "timestamp": "2026-07-27T22:10:34"
+    },
+    {
+      "op_id": "op015",
+      "step": "8. Change summary",
+      "operation": "quantify_cell_level_changes",
+      "description": "Diffed every cleaned column against its raw counterpart to produce per-column cells-changed and cells-filled counts (Report 2a).",
+      "rationale_for_U1": "Quantifies delta-D: exactly which cells the workflow touched, so the cleaning is auditable.",
+      "tool": "python/pandas",
+      "params": {},
+      "columns_in": [],
+      "columns_out": [
+        "change_summary.csv",
+        "derived_columns.csv"
+      ],
+      "before": {
+        "total_cells": 5080773
+      },
+      "after": {
+        "cells_rewritten": 463558,
+        "new_columns": 15,
+        "new_violation_rows": 974597
+      },
+      "rows_affected": 463558,
+      "timestamp": "2026-07-27T22:10:36"
+    },
+    {
+      "op_id": "op016",
+      "step": "9. U1",
+      "operation": "answer_use_case_U1",
+      "description": "Ran the U1 analysis query on D (not answerable) and on D-prime, counting each violation category once per inspection via COUNT(DISTINCT inspection_id).",
+      "rationale_for_U1": "Demonstrates fitness for use: the cleaning is sufficient for U1 and each step was necessary.",
+      "tool": "python/pandas",
+      "params": {
+        "sql": "SELECT i.facility_group, i.risk_clean, v.code_era, v.violation_number, v.violation_title, COUNT(DISTINCT i.inspection_id) AS n_failed_inspections FROM insp i JOIN viol v USING (inspection_id) WHERE i.result = 'Fail' AND i.fail_missing_violations = FALSE AND v.violation_number_valid GROUP BY 1,2,3,4,5 ORDER BY n_failed_inspections DESC"
+      },
+      "columns_in": [],
+      "columns_out": [
+        "u1_result.csv"
+      ],
+      "before": {
+        "answerable": false,
+        "groups_returned_on_D": 54281
+      },
+      "after": {
+        "answerable": true,
+        "result_cells": 2296,
+        "distinct_categories": 109
+      },
+      "rows_affected": null,
+      "timestamp": "2026-07-27T22:10:36"
+    }
+  ],
+  "integrity_constraints": [
+    {
+      "IC": "IC1",
+      "constraint": "Key: inspection_id is unique",
+      "type": "key constraint",
+      "needed_for_U1": "required (entity identity)",
+      "unit": "violating rows",
+      "before_D": 0,
+      "after_Dprime": 0,
+      "verdict": "already clean (no change needed)"
+    },
+    {
+      "IC": "IC2",
+      "constraint": "Domain: Risk in {Risk 1 (High), Risk 2 (Medium), Risk 3 (Low), Unknown}",
+      "type": "domain constraint",
+      "needed_for_U1": "REQUIRED (U1 groups by risk)",
+      "unit": "violating rows",
+      "before_D": 167,
+      "after_Dprime": 0,
+      "verdict": "RESOLVED"
+    },
+    {
+      "IC": "IC3",
+      "constraint": "Format: City is non-null and in canonical upper/trimmed form",
+      "type": "format / completeness",
+      "needed_for_U1": "useful (scope verification)",
+      "unit": "violating rows",
+      "before_D": 829,
+      "after_Dprime": 0,
+      "verdict": "RESOLVED"
+    },
+    {
+      "IC": "IC4",
+      "constraint": "Consistency: no misspelled single-token variant of CHICAGO survives",
+      "type": "denial constraint",
+      "needed_for_U1": "useful (scope verification)",
+      "unit": "violating rows",
+      "before_D": 96,
+      "after_Dprime": 0,
+      "verdict": "RESOLVED"
+    },
+    {
+      "IC": "IC5",
+      "constraint": "Domain: State is a 2-letter code or explicitly UNKNOWN",
+      "type": "domain constraint",
+      "needed_for_U1": "useful (scope verification)",
+      "unit": "violating rows",
+      "before_D": 58,
+      "after_Dprime": 0,
+      "verdict": "RESOLVED"
+    },
+    {
+      "IC": "IC6",
+      "constraint": "Domain: Results in the 7 documented outcomes  (the U0 control)",
+      "type": "domain constraint",
+      "needed_for_U1": "required (U1 filters Results='Fail')",
+      "unit": "violating rows",
+      "before_D": 0,
+      "after_Dprime": 0,
+      "verdict": "already clean (no change needed)"
+    },
+    {
+      "IC": "IC7",
+      "constraint": "Controlled vocabulary: facility type has at most 16 distinct values",
+      "type": "domain constraint",
+      "needed_for_U1": "REQUIRED (U1 groups by facility type)",
+      "unit": "distinct values",
+      "before_D": 521,
+      "after_Dprime": 16,
+      "verdict": "IMPROVED (521 -> 16)"
+    },
+    {
+      "IC": "IC8",
+      "constraint": "Coverage: every non-blank facility type maps to a real group (not 'Other')",
+      "type": "completeness",
+      "needed_for_U1": "REQUIRED (U1 groups by facility type)",
+      "unit": "violating rows",
+      "before_D": "n/a - no grouping existed in D",
+      "after_Dprime": 190,
+      "verdict": "new check, only possible on D-prime"
+    },
+    {
+      "IC": "IC9",
+      "constraint": "1NF: violation facts are atomic (no multi-valued violation cell)",
+      "type": "normal-form / denial constraint",
+      "needed_for_U1": "REQUIRED (U1 counts violation categories)",
+      "unit": "violating rows",
+      "before_D": 215525,
+      "after_Dprime": 0,
+      "verdict": "RESOLVED"
+    },
+    {
+      "IC": "IC10",
+      "constraint": "Referential integrity: viol.inspection_id references insp.inspection_id",
+      "type": "inclusion dependency",
+      "needed_for_U1": "REQUIRED (U1 joins the two relations)",
+      "unit": "violating rows",
+      "before_D": "n/a - no violation relation existed in D",
+      "after_Dprime": 0,
+      "verdict": "new check, only possible on D-prime"
+    },
+    {
+      "IC": "IC11",
+      "constraint": "FD: (code_era, violation_number) -> violation_title",
+      "type": "functional dependency",
+      "needed_for_U1": "REQUIRED (stops the 2018 code change merging categories)",
+      "unit": "violating rows",
+      "before_D": "n/a - violation number/title not extractable in D",
+      "after_Dprime": 0,
+      "verdict": "new check, only possible on D-prime"
+    },
+    {
+      "IC": "IC11b",
+      "constraint": "FD counter-example: violation_number alone -> violation_title",
+      "type": "functional dependency",
+      "needed_for_U1": "diagnostic: shows why code_era is needed",
+      "unit": "violating rows",
+      "before_D": "n/a - violation number/title not extractable in D",
+      "after_Dprime": 45,
+      "verdict": "diagnostic"
+    },
+    {
+      "IC": "IC12",
+      "constraint": "Domain: violation_number lies inside its era's code book",
+      "type": "domain constraint",
+      "needed_for_U1": "REQUIRED (guards the category vocabulary)",
+      "unit": "violating rows",
+      "before_D": "n/a - violation number not extractable in D",
+      "after_Dprime": 0,
+      "verdict": "new check, only possible on D-prime"
+    },
+    {
+      "IC": "IC13",
+      "constraint": "Every Fail carries violation evidence, or is explicitly flagged",
+      "type": "denial constraint",
+      "needed_for_U1": "REQUIRED (prevents false zeros in U1)",
+      "unit": "violating rows",
+      "before_D": 3579,
+      "after_Dprime": 0,
+      "verdict": "RESOLVED"
+    },
+    {
+      "IC": "IC14",
+      "constraint": "Format: inspection_date is ISO-8601 and inside the published extract window",
+      "type": "format / range constraint",
+      "needed_for_U1": "REQUIRED (the date determines the code era)",
+      "unit": "violating rows",
+      "before_D": 0,
+      "after_Dprime": 0,
+      "verdict": "already clean (no change needed)"
+    }
+  ],
+  "change_summary": [
+    {
+      "source_column": "Inspection Date",
+      "cleaned_column": "inspection_date",
+      "cells_changed": 298869,
+      "pct_cells_changed": 100.0,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 3985,
+      "distinct_after": 3985,
+      "missing_before": 0,
+      "missing_after": 0
+    },
+    {
+      "source_column": "Inspection Type",
+      "cleaned_column": "inspection_type",
+      "cells_changed": 63561,
+      "pct_cells_changed": 21.267,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 111,
+      "distinct_after": 101,
+      "missing_before": 1,
+      "missing_after": 1
+    },
+    {
+      "source_column": "Facility Type",
+      "cleaned_column": "facility_group",
+      "cells_changed": 37459,
+      "pct_cells_changed": 12.534,
+      "cells_filled_from_blank": 5264,
+      "distinct_before": 521,
+      "distinct_after": 16,
+      "missing_before": 5264,
+      "missing_after": 0
+    },
+    {
+      "source_column": "DBA Name",
+      "cleaned_column": "dba_name",
+      "cells_changed": 22607,
+      "pct_cells_changed": 7.564,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 34146,
+      "distinct_after": 33634,
+      "missing_before": 0,
+      "missing_after": 0
+    },
+    {
+      "source_column": "AKA Name",
+      "cleaned_column": "aka_name",
+      "cells_changed": 21991,
+      "pct_cells_changed": 7.358,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 32506,
+      "distinct_after": 32000,
+      "missing_before": 2412,
+      "missing_after": 2412
+    },
+    {
+      "source_column": "Address",
+      "cleaned_column": "address",
+      "cells_changed": 17887,
+      "pct_cells_changed": 5.985,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 20208,
+      "distinct_after": 20038,
+      "missing_before": 3,
+      "missing_after": 3
+    },
+    {
+      "source_column": "City",
+      "cleaned_column": "city_clean",
+      "cells_changed": 959,
+      "pct_cells_changed": 0.321,
+      "cells_filled_from_blank": 162,
+      "distinct_before": 90,
+      "distinct_after": 73,
+      "missing_before": 162,
+      "missing_after": 0
+    },
+    {
+      "source_column": "Risk",
+      "cleaned_column": "risk_clean",
+      "cells_changed": 167,
+      "pct_cells_changed": 0.056,
+      "cells_filled_from_blank": 87,
+      "distinct_before": 5,
+      "distinct_after": 4,
+      "missing_before": 87,
+      "missing_after": 0
+    },
+    {
+      "source_column": "State",
+      "cleaned_column": "state_clean",
+      "cells_changed": 58,
+      "pct_cells_changed": 0.019,
+      "cells_filled_from_blank": 58,
+      "distinct_before": 7,
+      "distinct_after": 7,
+      "missing_before": 58,
+      "missing_after": 0
+    },
+    {
+      "source_column": "Results",
+      "cleaned_column": "result",
+      "cells_changed": 0,
+      "pct_cells_changed": 0.0,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 7,
+      "distinct_after": 7,
+      "missing_before": 0,
+      "missing_after": 0
+    },
+    {
+      "source_column": "License #",
+      "cleaned_column": "license_num",
+      "cells_changed": 0,
+      "pct_cells_changed": 0.0,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 47563,
+      "distinct_after": 47563,
+      "missing_before": 18,
+      "missing_after": 18
+    },
+    {
+      "source_column": "Zip",
+      "cleaned_column": "zip",
+      "cells_changed": 0,
+      "pct_cells_changed": 0.0,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 131,
+      "distinct_after": 131,
+      "missing_before": 42,
+      "missing_after": 42
+    },
+    {
+      "source_column": "Latitude",
+      "cleaned_column": "latitude",
+      "cells_changed": 0,
+      "pct_cells_changed": 0.0,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 18704,
+      "distinct_after": 18704,
+      "missing_before": 1022,
+      "missing_after": 1022
+    },
+    {
+      "source_column": "Longitude",
+      "cleaned_column": "longitude",
+      "cells_changed": 0,
+      "pct_cells_changed": 0.0,
+      "cells_filled_from_blank": 0,
+      "distinct_before": 18704,
+      "distinct_after": 18704,
+      "missing_before": 1022,
+      "missing_after": 1022
+    }
+  ]
+}

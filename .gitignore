@@ -1,0 +1,7 @@
+.DS_Store
+.ipynb_checkpoints/
+
+# Raw and cleaned datasets are shared via Box (see DataLinks.txt), not committed.
+Food-Inspections-*.csv
+output/clean_inspections.csv
+output/clean_violations.csv
