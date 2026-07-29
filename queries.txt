@@ -10,7 +10,7 @@ Relations:
   viol = output/clean_violations.csv   - one row per violation per inspection      (D-prime)
 
 Every IC query returns the NUMBER OF VIOLATING ROWS; 0 means the constraint holds.
-The results recorded below were produced by the notebook run started 2026-07-27T22:10:10.
+The results recorded below were produced by the notebook run started 2026-07-28T23:25:40.
 ====================================================================================================
 
 ####################################################################################################

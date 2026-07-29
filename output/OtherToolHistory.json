@@ -41,8 +41,8 @@
       "foreign_key": "inspection_id -> clean_inspections.inspection_id"
     }
   },
-  "run_started": "2026-07-27T22:10:10",
-  "run_finished": "2026-07-27T22:10:36",
+  "run_started": "2026-07-28T23:25:40",
+  "run_finished": "2026-07-28T23:26:04",
   "n_operations": 16,
   "operations": [
     {
@@ -62,7 +62,7 @@
         "phase2_actual_missing_total": 94457
       },
       "rows_affected": null,
-      "timestamp": "2026-07-27T22:10:13"
+      "timestamp": "2026-07-28T23:25:43"
     },
     {
       "op_id": "op002",
@@ -80,7 +80,7 @@
       },
       "after": null,
       "rows_affected": null,
-      "timestamp": "2026-07-27T22:10:14"
+      "timestamp": "2026-07-28T23:25:44"
     },
     {
       "op_id": "op003",
@@ -119,7 +119,7 @@
         "missing": 0
       },
       "rows_affected": 959,
-      "timestamp": "2026-07-27T22:10:14"
+      "timestamp": "2026-07-28T23:25:44"
     },
     {
       "op_id": "op004",
@@ -146,7 +146,7 @@
         "flagged_out_of_state": 18
       },
       "rows_affected": 58,
-      "timestamp": "2026-07-27T22:10:14"
+      "timestamp": "2026-07-28T23:25:44"
     },
     {
       "op_id": "op005",
@@ -182,7 +182,7 @@
         "out_of_domain_rows": 0
       },
       "rows_affected": 167,
-      "timestamp": "2026-07-27T22:10:15"
+      "timestamp": "2026-07-28T23:25:45"
     },
     {
       "op_id": "op006",
@@ -207,7 +207,7 @@
         "out_of_domain": 0
       },
       "rows_affected": 0,
-      "timestamp": "2026-07-27T22:10:15"
+      "timestamp": "2026-07-28T23:25:45"
     },
     {
       "op_id": "op007",
@@ -231,7 +231,7 @@
         "distinct": 101
       },
       "rows_affected": 63561,
-      "timestamp": "2026-07-27T22:10:15"
+      "timestamp": "2026-07-28T23:25:45"
     },
     {
       "op_id": "op008",
@@ -261,7 +261,7 @@
         "format": "ISO-8601 date"
       },
       "rows_affected": 298869,
-      "timestamp": "2026-07-27T22:10:15"
+      "timestamp": "2026-07-28T23:25:45"
     },
     {
       "op_id": "op009",
@@ -296,7 +296,7 @@
         "dba_untrimmed_cells": 0
       },
       "rows_affected": 40494,
-      "timestamp": "2026-07-27T22:10:16"
+      "timestamp": "2026-07-28T23:25:46"
     },
     {
       "op_id": "op010",
@@ -327,7 +327,7 @@
         "Unknown_rows": 5264
       },
       "rows_affected": 37459,
-      "timestamp": "2026-07-27T22:10:17"
+      "timestamp": "2026-07-28T23:25:47"
     },
     {
       "op_id": "op011",
@@ -371,7 +371,7 @@
         "queryable_category_field": true
       },
       "rows_affected": 974597,
-      "timestamp": "2026-07-27T22:10:27"
+      "timestamp": "2026-07-28T23:25:57"
     },
     {
       "op_id": "op012",
@@ -412,7 +412,7 @@
         "fail_missing_violations": 3579
       },
       "rows_affected": 9712,
-      "timestamp": "2026-07-27T22:10:28"
+      "timestamp": "2026-07-28T23:25:57"
     },
     {
       "op_id": "op013",
@@ -479,7 +479,7 @@
         "violation_rows": 974597
       },
       "rows_affected": 1273466,
-      "timestamp": "2026-07-27T22:10:33"
+      "timestamp": "2026-07-28T23:26:02"
     },
     {
       "op_id": "op014",
@@ -503,7 +503,7 @@
         "ic_violating_rows": 0
       },
       "rows_affected": null,
-      "timestamp": "2026-07-27T22:10:34"
+      "timestamp": "2026-07-28T23:26:02"
     },
     {
       "op_id": "op015",
@@ -527,7 +527,7 @@
         "new_violation_rows": 974597
       },
       "rows_affected": 463558,
-      "timestamp": "2026-07-27T22:10:36"
+      "timestamp": "2026-07-28T23:26:03"
     },
     {
       "op_id": "op016",
@@ -553,7 +553,7 @@
         "distinct_categories": 109
       },
       "rows_affected": null,
-      "timestamp": "2026-07-27T22:10:36"
+      "timestamp": "2026-07-28T23:26:04"
     }
   ],
   "integrity_constraints": [
